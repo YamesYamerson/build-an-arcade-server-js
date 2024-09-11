@@ -1,70 +1,102 @@
-import Middleware from './middleware.js';
-
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Snake, food, and direction initialization
-let snake = [{ x: 200, y: 200 }];
+// Constants for the game
+const gridSize = 20;
+const tileCount = canvas.width / gridSize;
+let snake = [{ x: 10, y: 10 }];
 let direction = { x: 0, y: 0 };
-let food = { x: 100, y: 100 };
+let food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+let score = 0;
 
-const socket = io();  // Socket.io initialization
-const middleware = new Middleware(socket);  // Middleware setup
-middleware.handleServerRequests();  // Handling server requests
-
-// Draw the snake and food on the canvas
+// Draw the snake and the food
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);  // Clear the canvas
+  // Clear the canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw the snake
+  // Draw snake
   snake.forEach((segment) => {
     ctx.fillStyle = 'green';
-    ctx.fillRect(segment.x, segment.y, 20, 20);
+    ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
   });
 
-  // Draw the food
+  // Draw food
   ctx.fillStyle = 'red';
-  ctx.fillRect(food.x, food.y, 20, 20);
+  ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+
+  // Draw score
+  ctx.fillStyle = 'black';
+  ctx.font = '20px Arial';
+  ctx.fillText('Score: ' + score, 10, 20);
 }
 
-// Update snake's position based on direction
+// Update snake's position
 function updateSnake() {
-  const newSegment = {
-    x: snake[0].x + direction.x * 20,
-    y: snake[0].y + direction.y * 20,
+  // Move the snake's head
+  const newHead = {
+    x: snake[0].x + direction.x,
+    y: snake[0].y + direction.y,
   };
 
-  // Add new head position
-  snake.unshift(newSegment);
-  // Remove the tail segment
-  snake.pop();
+  // Check if the snake eats the food
+  if (newHead.x === food.x && newHead.y === food.y) {
+    score += 1;
+    food = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount),
+    };
+  } else {
+    snake.pop(); // Remove the last segment if not eating food
+  }
+
+  // Check for wall collision
+  if (newHead.x < 0 || newHead.x >= tileCount || newHead.y < 0 || newHead.y >= tileCount) {
+    resetGame();
+    return;
+  }
+
+  // Check for self-collision
+  if (snake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+    resetGame();
+    return;
+  }
+
+  // Add the new head to the front of the snake
+  snake.unshift(newHead);
 }
 
 // Handle keyboard input for controlling the snake
 window.addEventListener('keydown', (event) => {
   switch (event.key) {
     case 'ArrowUp':
-      direction = { x: 0, y: -1 };
+      if (direction.y === 0) direction = { x: 0, y: -1 };
       break;
     case 'ArrowDown':
-      direction = { x: 0, y: 1 };
+      if (direction.y === 0) direction = { x: 0, y: 1 };
       break;
     case 'ArrowLeft':
-      direction = { x: -1, y: 0 };
+      if (direction.x === 0) direction = { x: -1, y: 0 };
       break;
     case 'ArrowRight':
-      direction = { x: 1, y: 0 };
+      if (direction.x === 0) direction = { x: 1, y: 0 };
       break;
   }
-
-  middleware.sendMove({ direction });  // Send move data to server
 });
+
+// Reset game function when the snake hits a wall or itself
+function resetGame() {
+  alert(`Game Over! Your score: ${score}`);
+  snake = [{ x: 10, y: 10 }];
+  direction = { x: 0, y: 0 };
+  score = 0;
+  food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+}
 
 // Main game loop
 function gameLoop() {
   updateSnake();
   draw();
-  requestAnimationFrame(gameLoop);  // Keep the game running
+  setTimeout(gameLoop, 100); // Adjust speed by changing the delay here
 }
 
-gameLoop();  // Start the game loop
+gameLoop(); // Start the game loop
