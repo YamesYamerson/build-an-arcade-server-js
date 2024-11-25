@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const { logInfo, logWarning, logError, logSuccess } = require('../utils/logger');
+const { logInfo, logWarning, logError, logSuccess } = require('./logger');
 const { addPlayerToMatchmaking } = require('./matchmaking');
 
 const app = express();
@@ -24,18 +24,16 @@ app.use((req, res, next) => {
         let userId = req.cookies.userId;
 
         if (!userId || !sessions[userId]) {
-            // Generate a new session
             userId = uuidv4();
             res.cookie('userId', userId, { maxAge: SESSION_LIFETIME, httpOnly: true });
             sessions[userId] = {
                 userId,
                 nickname: null,
                 inGame: false,
-                createdAt: Date.now()
+                createdAt: Date.now(),
             };
             logSuccess(`New session created for user: ${userId}`);
         } else {
-            // Reset session expiration
             sessions[userId].createdAt = Date.now();
             logInfo(`Session validated for user: ${userId}`);
         }
@@ -48,7 +46,7 @@ app.use((req, res, next) => {
     }
 });
 
-// Clean up expired sessions periodically
+// Clean up expired sessions
 setInterval(() => {
     const now = Date.now();
     for (const userId in sessions) {
@@ -57,19 +55,39 @@ setInterval(() => {
             delete sessions[userId];
         }
     }
-}, 1000 * 60); // Every minute
+}, 1000 * 60);
 
 // Serve static files
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Root route
 app.get('/', (req, res) => {
     try {
-        res.sendFile(path.join(__dirname, '../public/index.html'));
+        logInfo('Serving index.html for the lobby.');
+        res.sendFile(path.join(__dirname, 'public/index.html'));
     } catch (error) {
         logError(`Error serving lobby: ${error.message}`);
         res.status(500).send('Internal server error');
     }
+});
+
+// API to check session and nickname
+app.get('/check-session', (req, res) => {
+    const userId = req.cookies.userId;
+
+    if (!userId || !sessions[userId]) {
+        logWarning('Session validation failed: No session found.');
+        return res.status(403).json({ success: false, message: 'Session not found.' });
+    }
+
+    const session = sessions[userId];
+    if (!session.nickname) {
+        logWarning(`Session validation failed: Nickname not set for user ${userId}`);
+        return res.status(403).json({ success: false, message: 'Nickname not set.' });
+    }
+
+    logSuccess(`Session and nickname validated for user: ${userId}`);
+    res.json({ success: true, nickname: session.nickname });
 });
 
 // API to set nickname
@@ -79,7 +97,7 @@ app.post('/set-nickname', (req, res) => {
         const { nickname } = req.body;
 
         if (!nickname || nickname.trim() === '') {
-            logWarning('Invalid nickname received.');
+            logWarning('Invalid nickname submitted.');
             return res.status(400).json({ success: false, message: 'Nickname cannot be empty.' });
         }
 
@@ -92,7 +110,7 @@ app.post('/set-nickname', (req, res) => {
     }
 });
 
-// API to load games dynamically
+// API to load a game
 app.get('/load-game/:gameName', (req, res) => {
     try {
         const { userId } = req.session;
@@ -111,13 +129,13 @@ app.get('/load-game/:gameName', (req, res) => {
     }
 });
 
-// Handle WebSocket connections
+// WebSocket connections
 io.on('connection', (socket) => {
     try {
         const userId = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('userId='))?.split('=')[1];
 
         if (!userId || !sessions[userId]) {
-            logWarning('Socket connection with invalid or expired session.');
+            logWarning('Invalid or expired session on socket connection.');
             socket.emit('error', 'Session not found or expired.');
             socket.disconnect();
             return;
@@ -126,11 +144,12 @@ io.on('connection', (socket) => {
         logInfo(`User connected: ${userId} (${socket.id})`);
         sessions[userId].socketId = socket.id;
 
-        // Handle matchmaking
+        // Matchmaking
         socket.on('join-matchmaking', () => {
             try {
                 const session = sessions[userId];
                 if (!session.nickname) {
+                    logWarning(`User ${userId} attempted matchmaking without a nickname.`);
                     socket.emit('error', 'Nickname not set.');
                     return;
                 }
@@ -156,8 +175,9 @@ io.on('connection', (socket) => {
     }
 });
 
-// Start the server
+// Start server
 const PORT = 3000;
 server.listen(PORT, () => {
     logSuccess(`Server running on http://localhost:${PORT}`);
 });
+    
