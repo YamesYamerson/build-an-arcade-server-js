@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameGallery = document.getElementById('gameGallery');
     const matchStatus = document.getElementById('matchStatus');
     const matchMessage = document.getElementById('matchMessage');
-
+    const lobbyContainer = document.querySelector('.lobby-container');
+    
     let nickname = '';
 
     // Utility Functions for Logging
@@ -57,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     logSuccess(`Nickname successfully set: ${nickname}`);
                     nameEntry.style.display = 'none';
                     modeSelection.style.display = 'block';
-                    logInfo('Navigated to game mode selection.');
                 } else {
                     logError(`Failed to set nickname: ${data.message || 'Unknown error'}`);
                     alert(data.message || 'Failed to set name.');
@@ -74,30 +74,32 @@ document.addEventListener('DOMContentLoaded', () => {
         logInfo('1 Player Mode selected.');
         modeSelection.style.display = 'none';
         gameGallery.style.display = 'block';
-        logInfo('Navigated to game gallery.');
+
+        // Modify game buttons for one-player mode
+        document.querySelectorAll('.gameButton').forEach((button) => {
+            button.dataset.mode = 'one-player';
+        });
+    });
+
+    // Handle 2 Player Mode
+    document.getElementById('twoPlayer').addEventListener('click', () => {
+        logInfo('2 Player Mode selected.');
+        modeSelection.style.display = 'none';
+        gameGallery.style.display = 'block';
+
+        // Modify game buttons for two-player mode
+        document.querySelectorAll('.gameButton').forEach((button) => {
+            button.dataset.mode = 'two-player';
+        });
     });
 
     // Handle Game Selection
     document.querySelectorAll('.gameButton').forEach((button) => {
         button.addEventListener('click', () => {
             const gameName = button.getAttribute('data-game');
-            logInfo(`Attempting to load game: ${gameName}`);
-
-            fetch(`/load-game/${gameName}`)
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.success) {
-                        logSuccess(`Game loaded successfully: ${gameName}`);
-                        window.location.href = `/${gameName}.html`;
-                    } else {
-                        logError(`Failed to load game: ${gameName}. Message: ${data.message}`);
-                        alert(data.message || 'Failed to load the game.');
-                    }
-                })
-                .catch((error) => {
-                    logError(`Error loading game: ${gameName}. Error: ${error.message}`);
-                    alert('An error occurred while loading the game. Please try again.');
-                });
+            const mode = button.getAttribute('data-mode');
+            logInfo(`Attempting to load game: ${gameName} in mode: ${mode}`);
+            loadGame(gameName, mode);
         });
     });
 
@@ -108,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modeSelection.style.display = 'block';
     });
 
-    // Handle 2 Player Mode
+    // Handle Matchmaking
     document.getElementById('twoPlayer').addEventListener('click', () => {
         logInfo('2 Player Mode selected.');
         modeSelection.style.display = 'none';
@@ -123,6 +125,20 @@ document.addEventListener('DOMContentLoaded', () => {
         logSuccess(`Match found! Opponent: ${data.nickname || 'Player'}`);
         matchMessage.innerText = `Match found! ${data.nickname || 'Player'} is ready to play with you.`;
     });
+
+    // Load Game Function
+    async function loadGame(gameName, mode) {
+        logInfo(`Loading game: ${gameName}`);
+        lobbyContainer.innerHTML = ''; // Clear the lobby content
+
+        try {
+            const gameModule = await import(`./games/${gameName}.js`); // Dynamically import the game module
+            gameModule.initializeGame(lobbyContainer, socket, mode); // Pass the mode to the game logic
+        } catch (error) {
+            logError(`Failed to load game module: ${error.message}`);
+            alert(`Game "${gameName}" is not available.`);
+        }
+    }
 
     // Handle Socket Errors
     socket.on('error', (errorMessage) => {

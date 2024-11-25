@@ -1,4 +1,4 @@
-const { logInfo, logSuccess, logWarning } = require('../utils/logger');
+const { logInfo, logSuccess } = require('../utils/logger');
 
 const matchmakingQueue = [];
 
@@ -20,7 +20,7 @@ function addPlayerToMatchmaking(playerId, playerName) {
     }
 
     logInfo('Waiting for more players to join matchmaking.');
-    return null; // Waiting for another player
+    return null;
 }
 
 module.exports = { addPlayerToMatchmaking };

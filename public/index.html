@@ -1,46 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcade Lobby</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="lobby-container">
-        <h1>Arcade Lobby</h1>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Arcade Lobby</title>
+        <link rel="icon" type="image/x-icon" href="/public/favicon.ico">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div class="lobby-container">
+            <h1>Arcade Lobby</h1>
 
-        <!-- Name Entry Section -->
-        <div id="nameEntry">
-            <h2>Choose a Temporary Name</h2>
-            <input type="text" id="playerName" placeholder="Enter your name" />
-            <button id="submitName">Continue</button>
+            <!-- Name Entry Section -->
+            <div id="nameEntry">
+                <h2>Choose a Temporary Name</h2>
+                <input type="text" id="playerName" placeholder="Enter your name" />
+                <button id="submitName">Continue</button>
+            </div>
+
+            <!-- Game Mode Selection Section -->
+            <div id="modeSelection" style="display: none;">
+                <h2>Choose Game Mode</h2>
+                <button id="onePlayer">1 Player Mode</button>
+                <button id="twoPlayer">2 Player Mode</button>
+            </div>
+
+            <!-- Game Gallery Section -->
+            <div id="gameGallery" style="display: none;">
+                <h2>Game Gallery</h2>
+                <button class="gameButton" data-game="tic-tac-toe">Tic Tac Toe</button>
+                <button class="gameButton" data-game="pong">Pong</button>
+                <button id="backToModeSelection">Back</button>
+            </div>
+
+            <!-- Match Status Section -->
+            <div id="matchStatus" style="display: none;">
+                <h2>Matchmaking</h2>
+                <p id="matchMessage">Searching for a match...</p>
+            </div>
         </div>
 
-        <!-- Game Mode Selection Section -->
-        <div id="modeSelection" style="display: none;">
-            <h2>Choose Game Mode</h2>
-            <button id="onePlayer">1 Player Mode</button>
-            <button id="twoPlayer">2 Player Mode</button>
-        </div>
-
-        <!-- Game Gallery Section -->
-        <div id="gameGallery" style="display: none;">
-            <h2>Game Gallery</h2>
-            <button class="gameButton" data-game="tic-tac-toe">Tic Tac Toe</button>
-            <button class="gameButton" data-game="pong">Pong</button>
-            <button id="backToModeSelection">Back</button>
-        </div>
-
-        <!-- Match Status Section -->
-        <div id="matchStatus" style="display: none;">
-            <h2>Matchmaking</h2>
-            <p id="matchMessage">Searching for a match...</p>
-        </div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="lobby.js"></script>
-</body>
-</html>
+        <script src="/socket.io/socket.io.js"></script>
+        <script src="lobby.js"></script>
+    </body>
+    </html>

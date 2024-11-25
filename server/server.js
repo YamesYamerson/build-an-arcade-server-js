@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const { logInfo, logWarning, logError, logSuccess } = require('./logger');
+const { logInfo, logWarning, logError, logSuccess } = require('../utils/logger');
 const { addPlayerToMatchmaking } = require('./matchmaking');
 
 const app = express();
@@ -14,9 +14,18 @@ const io = new Server(server);
 const SESSION_LIFETIME = 1000 * 60 * 30; // 30 minutes
 const sessions = {};
 
-// Middleware for cookies and JSON parsing
+// Middleware for cookies, JSON parsing, and CSP headers
 app.use(cookieParser());
 app.use(express.json());
+
+// Updated CSP Middleware
+app.use((req, res, next) => {
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+    );
+    next();
+});
 
 // Session Management Middleware
 app.use((req, res, next) => {
@@ -25,7 +34,12 @@ app.use((req, res, next) => {
 
         if (!userId || !sessions[userId]) {
             userId = uuidv4();
-            res.cookie('userId', userId, { maxAge: SESSION_LIFETIME, httpOnly: true });
+            res.cookie('userId', userId, {
+                maxAge: SESSION_LIFETIME,
+                httpOnly: true,
+                sameSite: 'Lax', // Adjust as needed
+                secure: process.env.NODE_ENV === 'production',
+            });
             sessions[userId] = {
                 userId,
                 nickname: null,
@@ -57,18 +71,13 @@ setInterval(() => {
     }
 }, 1000 * 60);
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files relative to the project root
+const publicPath = path.resolve(__dirname, '../public');
+app.use(express.static(publicPath));
 
 // Root route
 app.get('/', (req, res) => {
-    try {
-        logInfo('Serving index.html for the lobby.');
-        res.sendFile(path.join(__dirname, 'public/index.html'));
-    } catch (error) {
-        logError(`Error serving lobby: ${error.message}`);
-        res.status(500).send('Internal server error');
-    }
+    res.sendFile('index.html', { root: publicPath });
 });
 
 // API to check session and nickname
@@ -83,7 +92,7 @@ app.get('/check-session', (req, res) => {
     const session = sessions[userId];
     if (!session.nickname) {
         logWarning(`Session validation failed: Nickname not set for user ${userId}`);
-        return res.status(403).json({ success: false, message: 'Nickname not set.' });
+        return res.status(200).json({ success: false, message: 'Nickname not set.' });
     }
 
     logSuccess(`Session and nickname validated for user: ${userId}`);
@@ -109,6 +118,9 @@ app.post('/set-nickname', (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
+
+
+
 
 // API to load a game
 app.get('/load-game/:gameName', (req, res) => {
@@ -141,13 +153,20 @@ io.on('connection', (socket) => {
             return;
         }
 
+        const session = sessions[userId];
+        if (!session.nickname) {
+            logWarning(`User ${userId} attempted connection without a nickname.`);
+            socket.emit('error', 'Nickname not set. Please set a nickname first.');
+            socket.disconnect();
+            return;
+        }
+
         logInfo(`User connected: ${userId} (${socket.id})`);
         sessions[userId].socketId = socket.id;
 
         // Matchmaking
         socket.on('join-matchmaking', () => {
             try {
-                const session = sessions[userId];
                 if (!session.nickname) {
                     logWarning(`User ${userId} attempted matchmaking without a nickname.`);
                     socket.emit('error', 'Nickname not set.');
@@ -180,4 +199,3 @@ const PORT = 3000;
 server.listen(PORT, () => {
     logSuccess(`Server running on http://localhost:${PORT}`);
 });
-    

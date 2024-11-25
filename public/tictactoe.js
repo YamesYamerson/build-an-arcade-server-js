@@ -1,14 +1,26 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const socket = io();
-    const board = document.getElementById('board');
-    const status = document.getElementById('status');
+export function initializeGame(container, socket) {
+    console.log('[INFO] Tic Tac Toe initialized.');
+
+    // Create the Tic Tac Toe structure
+    const title = document.createElement('h1');
+    title.textContent = 'Tic Tac Toe';
+
+    const board = document.createElement('div');
+    board.id = 'board';
+
+    const status = document.createElement('p');
+    status.id = 'status';
+
+    container.appendChild(title);
+    container.appendChild(board);
+    container.appendChild(status);
 
     let currentPlayer = 'X';
     let gameState = ['', '', '', '', '', '', '', '', ''];
 
     // Render the board
     function renderBoard() {
-        board.innerHTML = '';
+        board.innerHTML = ''; // Clear the board
         gameState.forEach((cell, index) => {
             const cellElement = document.createElement('div');
             cellElement.classList.add('cell');
@@ -75,4 +87,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the board
     renderBoard();
-});
+}
