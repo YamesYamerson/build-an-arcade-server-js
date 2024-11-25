@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arcade Lobby</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,7 +25,7 @@
             <button id="twoPlayer">2 Player Mode</button>
         </div>
 
-        <!-- Game Gallery Section (1 Player Mode) -->
+        <!-- Game Gallery Section -->
         <div id="gameGallery" style="display: none;">
             <h2>Game Gallery</h2>
             <button class="gameButton" data-game="tic-tac-toe">Tic Tac Toe</button>
@@ -32,14 +33,13 @@
             <button id="backToModeSelection">Back</button>
         </div>
 
-        <!-- Match Status Section (2 Player Mode) -->
+        <!-- Match Status Section -->
         <div id="matchStatus" style="display: none;">
             <h2>Matchmaking</h2>
             <p id="matchMessage">Searching for a match...</p>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="lobby.js"></script>
 </body>
