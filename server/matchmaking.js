@@ -4,13 +4,12 @@ function addPlayerToMatchmaking(playerId, playerName) {
     matchmakingQueue.push({ id: playerId, name: playerName });
 
     if (matchmakingQueue.length >= 2) {
-        // Create a match with the first two players
         const player1 = matchmakingQueue.shift();
         const player2 = matchmakingQueue.shift();
-        return { player1, player2 };
+        return { player1, player2, mode: '2-player' };
     }
 
-    return null; // Not enough players for a match yet
+    return null; // Waiting for another player
 }
 
 module.exports = { addPlayerToMatchmaking };

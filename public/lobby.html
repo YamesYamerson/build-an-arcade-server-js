@@ -9,25 +9,23 @@
 <body>
     <div class="lobby-container">
         <h1>Arcade Lobby</h1>
-        
-        <!-- Name Entry Section -->
+        <!-- Step 1: Enter name -->
         <div id="nameEntry">
             <input type="text" id="playerName" placeholder="Enter your name" />
             <button id="submitName">Continue</button>
         </div>
 
-        <!-- Game Mode Selection Section -->
+        <!-- Step 2: Choose mode -->
         <div id="modeSelection" style="display: none;">
             <h2>Choose Game Mode</h2>
             <button id="onePlayer">1 Player Mode</button>
             <button id="twoPlayer">2 Player Mode</button>
         </div>
 
-        <!-- Match Status Section -->
+        <!-- Step 3: Match status -->
         <div id="matchStatus" style="display: none;"></div>
     </div>
 
-    <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="lobby.js"></script>
 </body>
