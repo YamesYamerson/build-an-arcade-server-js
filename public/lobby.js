@@ -1,57 +1,53 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
 
-    const nameEntry = document.getElementById('nameEntry');
     const modeSelection = document.getElementById('modeSelection');
+    const gameGallery = document.getElementById('gameGallery');
     const matchStatus = document.getElementById('matchStatus');
+    const matchMessage = document.getElementById('matchMessage');
 
-    let playerName = '';
+    // Step 1: Handle 1 Player Mode
+    document.getElementById('onePlayer').addEventListener('click', () => {
+        modeSelection.style.display = 'none';
+        gameGallery.style.display = 'block';
+    });
 
-    // Step 1: Handle name submission
-    document.getElementById('submitName').addEventListener('click', () => {
-        playerName = document.getElementById('playerName').value.trim();
-        if (playerName === '') {
-            alert('Please enter your name.');
-            return;
-        }
-        nameEntry.style.display = 'none';
+    // Step 2: Handle Game Selection in 1 Player Mode
+    document.querySelectorAll('.gameButton').forEach(button => {
+        button.addEventListener('click', () => {
+            const gameName = button.getAttribute('data-game');
+            fetch(`/load-game/${gameName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = `/${gameName}.html`;
+                    } else {
+                        alert(data.message || 'Failed to load the game.');
+                    }
+                });
+        });
+    });
+
+    // Back to mode selection from game gallery
+    document.getElementById('backToModeSelection').addEventListener('click', () => {
+        gameGallery.style.display = 'none';
         modeSelection.style.display = 'block';
     });
 
-    // Step 2: Handle game mode selection
-    document.getElementById('onePlayer').addEventListener('click', () => {
-        startSinglePlayerGame();
-    });
-
+    // Step 3: Handle 2 Player Mode
     document.getElementById('twoPlayer').addEventListener('click', () => {
-        startMatchmaking();
-    });
-
-    // 1 Player Mode: Load the game directly
-    function startSinglePlayerGame() {
-        fetch('/load-game/tic-tac-toe')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = '/tic-tac-toe.html';
-                } else {
-                    alert(data.message || 'Failed to start the game.');
-                }
-            });
-    }
-
-    // 2 Player Mode: Enter matchmaking
-    function startMatchmaking() {
         modeSelection.style.display = 'none';
         matchStatus.style.display = 'block';
-        matchStatus.innerText = 'Searching for a match...';
+        socket.emit('join-matchmaking');
+    });
 
-        socket.emit('join-matchmaking', { playerName, mode: '2-player' });
-    }
+    // Handle Match Found
+    socket.on('match-found', (data) => {
+        matchMessage.innerText = `Match found! Welcome, ${data.nickname || 'Guest'}. ${data.message}`;
+    });
 
-    // Handle match found
-    socket.on('match-found', (match) => {
-        matchStatus.innerText = 
-            `Match found! Players: ${match.player1.name} vs ${match.player2?.name || 'Waiting...'}`;
+    // Handle Errors
+    socket.on('error', (errorMessage) => {
+        alert(errorMessage);
     });
 });

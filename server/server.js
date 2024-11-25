@@ -1,88 +1,79 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const chalk = require('chalk');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const { logInfo, logError } = require('../utils/logger');
-const { addPlayerToMatchmaking } = require('./matchmaking');
+const chalk = require('chalk');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Middleware for cookies and sessions
+app.use(cookieParser());
+app.use(session({
+    secret: 'arcade-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+}));
+
 const PORT = 3000;
 
-let activePlayers = {};
-let loadedGames = {};
+// Store active sessions
+const sessions = {};
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Root route
 app.get('/', (req, res) => {
+    if (!req.cookies.userId) {
+        const userId = uuidv4();
+        res.cookie('userId', userId, { httpOnly: true });
+        sessions[userId] = { nickname: null, inGame: false };
+        console.log(chalk.green(`Assigned new userId: ${userId}`));
+    }
     res.sendFile(path.join(__dirname, '../public/lobby.html'));
 });
 
-// API to load game dynamically
+// API to load games dynamically
 app.get('/load-game/:gameName', (req, res) => {
-    const gameName = req.params.gameName;
+    const userId = req.cookies.userId;
 
-    try {
-        const gamePath = path.join(__dirname, `../games/${gameName}.js`);
-        const gameModule = require(gamePath);
-
-        if (loadedGames[gameName]) {
-            res.json({ success: false, message: `Game ${gameName} is already loaded.` });
-        } else {
-            loadedGames[gameName] = gameModule(io);
-            logInfo(`Game ${gameName} loaded successfully.`);
-            res.json({ success: true, message: `Game ${gameName} loaded.` });
-        }
-    } catch (error) {
-        logError(`Failed to load game "${gameName}": ${error.message}`);
-        res.status(404).json({ success: false, message: 'Game not found.' });
+    if (!userId || !sessions[userId]) {
+        return res.status(403).json({ success: false, message: 'User session not found.' });
     }
+
+    console.log(chalk.green(`Game ${req.params.gameName} loaded for user: ${userId}`));
+    sessions[userId].inGame = true;
+
+    res.json({ success: true, message: `Game ${req.params.gameName} loaded.` });
 });
 
-// Handle matchmaking
+// Handle WebSocket connections
 io.on('connection', (socket) => {
-    const playerId = uuidv4();
-    logInfo(`Player connected: ${playerId} (${socket.id})`);
-    activePlayers[playerId] = { socket, inGame: false };
+    const userId = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('userId='))?.split('=')[1];
 
-    socket.on('join-matchmaking', ({ playerName, mode }) => {
-        logInfo(`Player ${playerId} requested matchmaking as "${playerName}" in ${mode} mode.`);
+    if (!userId || !sessions[userId]) {
+        console.log(chalk.red('No valid user session found.'));
+        socket.disconnect();
+        return;
+    }
 
-        if (mode === '1-player') {
-            // Create a match with AI
-            const match = {
-                player1: { id: playerId, name: playerName },
-                player2: { id: 'AI', name: 'AI Opponent' },
-                mode
-            };
-            socket.emit('match-found', match);
-            logInfo(`1-player match created for ${playerName} against AI.`);
-        } else if (mode === '2-player') {
-            // Add to matchmaking queue
-            const match = addPlayerToMatchmaking(playerId, playerName);
+    console.log(chalk.blue(`User connected: ${userId} (${socket.id})`));
+    sessions[userId].socketId = socket.id;
 
-            if (match) {
-                io.to(match.player1.id).emit('match-found', match);
-                io.to(match.player2.id).emit('match-found', match);
-                logInfo(`2-player match created: ${match.player1.name} vs ${match.player2.name}`);
-            } else {
-                socket.emit('match-status', 'Waiting for another player...');
-            }
-        }
+    socket.on('join-matchmaking', () => {
+        console.log(chalk.green(`User ${userId} joined matchmaking.`));
+        socket.emit('match-found', { nickname: sessions[userId].nickname || 'Guest', message: 'You are matched!' });
     });
 
     socket.on('disconnect', () => {
-        logInfo(`Player disconnected: ${playerId}`);
-        delete activePlayers[playerId];
-    });
-
-    socket.on('error', (err) => {
-        logError(`Error from player ${playerId}: ${err.message}`);
+        console.log(chalk.blue(`User disconnected: ${userId}`));
+        delete sessions[userId].socketId;
     });
 });
 
