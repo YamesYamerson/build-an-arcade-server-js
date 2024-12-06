@@ -1,18 +1,62 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server); // Initialize Socket.IO
 
-// Serve static files from the "public" directory
+// Logger function
+function logger(message) {
+    const logMessage = `${new Date().toISOString()} - ${message}\n`;
+    console.log(logMessage); // Log to console
+    fs.appendFileSync('server.log', logMessage); // Append to log file
+}
+
+// Middleware to log all incoming requests
+app.use((req, res, next) => {
+    logger(`Request: ${req.method} ${req.url}`);
+    next();
+});
+
+// Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Default route: Send a fallback response if `index.html` is missing
-app.get('/', (req, res) => {
-    res.send('<h1>Welcome to the Arcade Server</h1><p>No index.html file found. Add one in the public directory.</p>');
+// Explicitly handle favicon.ico
+app.get('/favicon.ico', (req, res) => {
+    const faviconPath = path.join(__dirname, '../public/favicon.ico');
+    if (fs.existsSync(faviconPath)) {
+        res.sendFile(faviconPath);
+    } else {
+        logger('Favicon not found: /favicon.ico');
+        res.status(404).send('Favicon not found');
+    }
+});
+
+// Socket.IO connection
+io.on('connection', (socket) => {
+    logger(`Socket connected: ${socket.id}`);
+
+    socket.on('message', (data) => {
+        logger(`Message received from ${socket.id}: ${data}`);
+        socket.emit('response', 'Hello from the server!');
+    });
+
+    socket.on('disconnect', () => {
+        logger(`Socket disconnected: ${socket.id}`);
+    });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+    logger(`Error: ${err.message}`);
+    res.status(500).send('Internal Server Error');
 });
 
 // Start the server
 const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+server.listen(PORT, () => {
+    logger(`Server running on http://localhost:${PORT}`);
 });
