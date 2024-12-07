@@ -20,24 +20,29 @@ app.use(express.json());
 
 // Updated CSP Middleware
 app.use((req, res, next) => {
-    res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
-    );
-    next();
+    try {
+        logInfo(`Applying CSP headers for request to ${req.url}`);
+        res.setHeader(
+            'Content-Security-Policy',
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+        );
+        next();
+    } catch (error) {
+        logError(`CSP Middleware Error: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 });
 
 // Session Management Middleware
 app.use((req, res, next) => {
     try {
         let userId = req.cookies.userId;
-
         if (!userId || !sessions[userId]) {
             userId = uuidv4();
             res.cookie('userId', userId, {
                 maxAge: SESSION_LIFETIME,
                 httpOnly: true,
-                sameSite: 'Lax', // Adjust as needed
+                sameSite: 'Lax',
                 secure: process.env.NODE_ENV === 'production',
             });
             sessions[userId] = {
@@ -62,12 +67,16 @@ app.use((req, res, next) => {
 
 // Clean up expired sessions
 setInterval(() => {
-    const now = Date.now();
-    for (const userId in sessions) {
-        if (now - sessions[userId].createdAt > SESSION_LIFETIME) {
-            logWarning(`Session expired for user: ${userId}`);
-            delete sessions[userId];
+    try {
+        const now = Date.now();
+        for (const userId in sessions) {
+            if (now - sessions[userId].createdAt > SESSION_LIFETIME) {
+                logWarning(`Session expired for user: ${userId}`);
+                delete sessions[userId];
+            }
         }
+    } catch (error) {
+        logError(`Error during session cleanup: ${error.message}`);
     }
 }, 1000 * 60);
 
@@ -77,26 +86,37 @@ app.use(express.static(publicPath));
 
 // Root route
 app.get('/', (req, res) => {
-    res.sendFile('index.html', { root: publicPath });
+    try {
+        logInfo('Serving root route');
+        res.sendFile('index.html', { root: publicPath });
+    } catch (error) {
+        logError(`Error in root route: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 });
 
 // API to check session and nickname
 app.get('/check-session', (req, res) => {
-    const userId = req.cookies.userId;
+    try {
+        const userId = req.cookies.userId;
 
-    if (!userId || !sessions[userId]) {
-        logWarning('Session validation failed: No session found.');
-        return res.status(403).json({ success: false, message: 'Session not found.' });
+        if (!userId || !sessions[userId]) {
+            logWarning('Session validation failed: No session found.');
+            return res.status(403).json({ success: false, message: 'Session not found.' });
+        }
+
+        const session = sessions[userId];
+        if (!session.nickname) {
+            logWarning(`Session validation failed: Nickname not set for user ${userId}`);
+            return res.status(200).json({ success: false, message: 'Nickname not set.' });
+        }
+
+        logSuccess(`Session and nickname validated for user: ${userId}`);
+        res.json({ success: true, nickname: session.nickname });
+    } catch (error) {
+        logError(`Error in /check-session: ${error.message}`);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
-
-    const session = sessions[userId];
-    if (!session.nickname) {
-        logWarning(`Session validation failed: Nickname not set for user ${userId}`);
-        return res.status(200).json({ success: false, message: 'Nickname not set.' });
-    }
-
-    logSuccess(`Session and nickname validated for user: ${userId}`);
-    res.json({ success: true, nickname: session.nickname });
 });
 
 // API to set nickname
@@ -118,9 +138,6 @@ app.post('/set-nickname', (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
-
-
-
 
 // API to load a game
 app.get('/load-game/:gameName', (req, res) => {
