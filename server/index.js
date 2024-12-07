@@ -35,6 +35,18 @@ app.get('/favicon.ico', (req, res) => {
     }
 });
 
+// Serve game files explicitly to handle MIME type issues
+app.get('/games/:gameFile', (req, res) => {
+    const filePath = path.join(__dirname, '../public/games', req.params.gameFile);
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+        logger(`Game file served: ${filePath}`);
+    } else {
+        logger(`Game file not found: ${filePath}`);
+        res.status(404).send('Game file not found');
+    }
+});
+
 // Socket.IO connection
 io.on('connection', (socket) => {
     logger(`Socket connected: ${socket.id}`);

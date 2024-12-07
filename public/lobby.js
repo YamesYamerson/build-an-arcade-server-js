@@ -8,17 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const matchStatus = document.getElementById('matchStatus');
     const matchMessage = document.getElementById('matchMessage');
     const lobbyContainer = document.querySelector('.lobby-container');
-    
+
     let nickname = '';
 
-    // Utility Functions for Logging
+    // Logging Utilities
     const logInfo = (message) => console.log(`[INFO] [${new Date().toISOString()}]: ${message}`);
     const logError = (message) => console.error(`[ERROR] [${new Date().toISOString()}]: ${message}`);
     const logSuccess = (message) => console.log(`[SUCCESS] [${new Date().toISOString()}]: ${message}`);
 
-    logInfo('Lobby page loaded and DOM fully parsed.');
+    logInfo('Lobby page loaded.');
 
-    // Check for an existing session and nickname
+    // Check for existing session and nickname
     fetch('/check-session')
         .then((response) => response.json())
         .then((data) => {
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nameEntry.style.display = 'none';
                 modeSelection.style.display = 'block';
             } else {
-                logInfo('No valid session or nickname found.');
+                logInfo('No valid session found.');
                 nameEntry.style.display = 'block';
             }
         })
@@ -37,11 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
             nameEntry.style.display = 'block';
         });
 
-    // Handle Name Submission
+    // Handle nickname submission
     document.getElementById('submitName').addEventListener('click', () => {
         nickname = document.getElementById('playerName').value.trim();
-        if (nickname === '') {
-            logError('Name submission failed: No name entered.');
+        if (!nickname) {
+            logError('No nickname provided.');
             alert('Please enter a name.');
             return;
         }
@@ -55,62 +55,28 @@ document.addEventListener('DOMContentLoaded', () => {
             .then((response) => response.json())
             .then((data) => {
                 if (data.success) {
-                    logSuccess(`Nickname successfully set: ${nickname}`);
+                    logSuccess(`Nickname set to: ${nickname}`);
                     nameEntry.style.display = 'none';
                     modeSelection.style.display = 'block';
                 } else {
-                    logError(`Failed to set nickname: ${data.message || 'Unknown error'}`);
+                    logError(`Error setting nickname: ${data.message}`);
                     alert(data.message || 'Failed to set name.');
                 }
             })
             .catch((error) => {
-                logError(`Error during nickname submission: ${error.message}`);
-                alert('An error occurred while setting your name. Please try again.');
+                logError(`Nickname submission error: ${error.message}`);
+                alert('An error occurred. Please try again.');
             });
     });
 
-    // Handle 1 Player Mode
+    // Handle game mode selection
     document.getElementById('onePlayer').addEventListener('click', () => {
         logInfo('1 Player Mode selected.');
         modeSelection.style.display = 'none';
         gameGallery.style.display = 'block';
-
-        // Modify game buttons for one-player mode
-        document.querySelectorAll('.gameButton').forEach((button) => {
-            button.dataset.mode = 'one-player';
-        });
+        setGameMode('one-player');
     });
 
-    // Handle 2 Player Mode
-    document.getElementById('twoPlayer').addEventListener('click', () => {
-        logInfo('2 Player Mode selected.');
-        modeSelection.style.display = 'none';
-        gameGallery.style.display = 'block';
-
-        // Modify game buttons for two-player mode
-        document.querySelectorAll('.gameButton').forEach((button) => {
-            button.dataset.mode = 'two-player';
-        });
-    });
-
-    // Handle Game Selection
-    document.querySelectorAll('.gameButton').forEach((button) => {
-        button.addEventListener('click', () => {
-            const gameName = button.getAttribute('data-game');
-            const mode = button.getAttribute('data-mode');
-            logInfo(`Attempting to load game: ${gameName} in mode: ${mode}`);
-            loadGame(gameName, mode);
-        });
-    });
-
-    // Back to Mode Selection
-    document.getElementById('backToModeSelection').addEventListener('click', () => {
-        logInfo('Returning to mode selection from game gallery.');
-        gameGallery.style.display = 'none';
-        modeSelection.style.display = 'block';
-    });
-
-    // Handle Matchmaking
     document.getElementById('twoPlayer').addEventListener('click', () => {
         logInfo('2 Player Mode selected.');
         modeSelection.style.display = 'none';
@@ -120,31 +86,39 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('join-matchmaking');
     });
 
-    // Handle Match Found
-    socket.on('match-found', (data) => {
-        logSuccess(`Match found! Opponent: ${data.nickname || 'Player'}`);
-        matchMessage.innerText = `Match found! ${data.nickname || 'Player'} is ready to play with you.`;
+    // Handle game selection
+    document.querySelectorAll('.gameButton').forEach((button) => {
+        button.addEventListener('click', () => {
+            const gameName = button.getAttribute('data-game');
+            const mode = button.dataset.mode;
+            logInfo(`Loading game: ${gameName}, Mode: ${mode}`);
+            loadGame(gameName, mode);
+        });
     });
 
-    // Load Game Function
-    async function loadGame(gameName, mode) {
-        logInfo(`Loading game: ${gameName}`);
-        lobbyContainer.innerHTML = ''; // Clear the lobby content
+    // Handle matchmaking result
+    socket.on('match-found', (data) => {
+        logSuccess(`Match found: Opponent nickname is ${data.nickname}`);
+        matchMessage.innerText = `Match found! Opponent: ${data.nickname}`;
+    });
 
+    // Load game dynamically
+    async function loadGame(gameName, mode) {
         try {
-            const gameModule = await import(`./games/${gameName}.js`); // Dynamically import the game module
-            gameModule.initializeGame(lobbyContainer, socket, mode); // Pass the mode to the game logic
+            logInfo(`Attempting to load game module: ${gameName}`);
+            const gameModule = await import(`./games/${gameName}/${gameName}.js`);
+            logSuccess(`Game module ${gameName} loaded successfully.`);
+            gameModule.initializeGame(lobbyContainer, socket, mode);
         } catch (error) {
-            logError(`Failed to load game module: ${error.message}`);
-            alert(`Game "${gameName}" is not available.`);
+            logError(`Error loading game ${gameName}: ${error.message}`);
+            alert(`Failed to load game "${gameName}".`);
         }
     }
 
-    // Handle Socket Errors
-    socket.on('error', (errorMessage) => {
-        logError(`Socket error: ${errorMessage}`);
-        alert(errorMessage);
-    });
-
-    logInfo('All event listeners initialized.');
+    function setGameMode(mode) {
+        logInfo(`Setting game mode to: ${mode}`);
+        document.querySelectorAll('.gameButton').forEach((button) => {
+            button.dataset.mode = mode;
+        });
+    }
 });
