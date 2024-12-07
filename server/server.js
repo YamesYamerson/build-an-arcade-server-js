@@ -24,7 +24,7 @@ app.use((req, res, next) => {
         logInfo(`Applying CSP headers for request to ${req.url}`);
         res.setHeader(
             'Content-Security-Policy',
-            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';"
         );
         next();
     } catch (error) {
@@ -82,7 +82,13 @@ setInterval(() => {
 
 // Serve static files relative to the project root
 const publicPath = path.resolve(__dirname, '../public');
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, {
+    setHeaders: (res, filePath) => {
+        if (path.extname(filePath) === '.js') {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Root route
 app.get('/', (req, res) => {
