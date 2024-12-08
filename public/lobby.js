@@ -106,14 +106,32 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadGame(gameName, mode) {
         try {
             logInfo(`Attempting to load game module: ${gameName}`);
+    
+            // Hide the lobby UI
+            const lobbyContainer = document.querySelector('.lobby-container');
+            lobbyContainer.style.display = 'none';
+    
+            // Clear any existing game UI
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = ''; // Clear previous game content
+            gameContainer.style.display = 'block'; // Make the game container visible
+    
+            // Load the game module dynamically
             const gameModule = await import(`./games/${gameName}/${gameName}.js`);
             logSuccess(`Game module ${gameName} loaded successfully.`);
-            gameModule.initializeGame(lobbyContainer, socket, mode);
+    
+            // Initialize the game in the game container
+            gameModule.initializeGame(gameContainer, socket, mode);
         } catch (error) {
             logError(`Error loading game ${gameName}: ${error.message}`);
             alert(`Failed to load game "${gameName}".`);
+    
+            // Show the lobby again if game loading fails
+            document.querySelector('.lobby-container').style.display = 'block';
+            document.getElementById('gameContainer').style.display = 'none';
         }
     }
+    
 
     function setGameMode(mode) {
         logInfo(`Setting game mode to: ${mode}`);

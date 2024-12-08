@@ -13,6 +13,7 @@ export function initializeGame(container, socket, mode = 'one-player') {
     const paddleHeight = 100;
     const player1PaddleY = { value: 150 };
     const player2PaddleY = { value: 150 }; // AI Paddle
+    let gameLoopId; // To track the game loop
 
     // Create Game UI
     const title = document.createElement('h1');
@@ -31,6 +32,8 @@ export function initializeGame(container, socket, mode = 'one-player') {
     canvas.id = 'pongCanvas';
     const ctx = canvas.getContext('2d');
 
+    // Clear the container and add the game elements
+    container.innerHTML = ''; // Clear any existing content
     container.appendChild(title);
     container.appendChild(scorecard);
     container.appendChild(canvas);
@@ -130,17 +133,46 @@ export function initializeGame(container, socket, mode = 'one-player') {
     function gameLoop() {
         updateGameState();
         render();
-        requestAnimationFrame(gameLoop);
+        gameLoopId = requestAnimationFrame(gameLoop);
     }
 
     // Player 1 Paddle Control
-    document.addEventListener('keydown', (event) => {
+    function handleKeyDown(event) {
         if (event.key === 'ArrowUp') {
             player1PaddleY.value = Math.max(0, player1PaddleY.value - 10);
         } else if (event.key === 'ArrowDown') {
             player1PaddleY.value = Math.min(canvas.height - paddleHeight, player1PaddleY.value + 10);
         }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup Function
+    function cleanup() {
+        // Cancel the game loop
+        cancelAnimationFrame(gameLoopId);
+
+        // Remove event listeners
+        document.removeEventListener('keydown', handleKeyDown);
+
+        // Clear the container
+        container.innerHTML = '';
+
+        // Restore the lobby
+        const lobbyContainer = document.querySelector('.lobby-container');
+        lobbyContainer.style.display = 'block';
+
+        const gameGallery = document.getElementById('gameGallery');
+        gameGallery.style.display = 'block'; // Show the game gallery
+    }
+
+    // Back to Lobby Button
+    const backToGamesButton = document.createElement('button');
+    backToGamesButton.textContent = 'Back to Games';
+    backToGamesButton.addEventListener('click', () => {
+        cleanup(); // Perform cleanup
+        socket.emit('back-to-games'); // Notify the server
     });
+    container.appendChild(backToGamesButton);
 
     // Start Game
     gameLoop();
